@@ -1,7 +1,5 @@
 const clientId = 'gky3gvnl2o5v2x26xrw5i79hs17nrk';
 const accessToken = '8wq193puwfzavy6m63ltbi96pjfe6x'; // Must be valid Bearer token
-//const clientId = 'YOUR_CLIENT_ID_HERE'; // Replace with your Twitch Client ID
-//const accessToken = 'YOUR_ACCESS_TOKEN_HERE'; // Replace with your Twitch Bearer Token
 const tableBody = document.querySelector('#streamers-table tbody');
 const tableHeaders = document.querySelectorAll('#streamers-table th');
 let streams = [];
@@ -36,7 +34,6 @@ async function fetchTopStreams() {
 
     streams = [];
 
-    // Fetch up to 500 streams (5 pages of 100)
     let cursor = null;
     for (let i = 0; i < 5; i++) {
       const url = new URL('https://api.twitch.tv/helix/streams');
@@ -64,7 +61,6 @@ async function fetchTopStreams() {
       if (!cursor || streams.length >= 500) break;
     }
 
-    // Fetch profile images
     const userLogins = streams.map(s => s.user_login);
     for (let i = 0; i < userLogins.length; i += 100) {
       const batch = userLogins.slice(i, i + 100);
@@ -84,7 +80,6 @@ async function fetchTopStreams() {
       });
     }
 
-    // Initial render
     sortAndRender();
 
   } catch (error) {
@@ -98,26 +93,33 @@ async function fetchTopStreams() {
 
 function sortAndRender() {
   const { column, direction } = currentSort;
+
+  // Always rank by viewer_count descending
+  const rankedStreams = [...streams].sort((a, b) => b.viewer_count - a.viewer_count);
+  const rankMap = new Map();
+  rankedStreams.forEach((s, i) => rankMap.set(s.user_login, i + 1));
+
   const sortedStreams = [...streams].sort((a, b) => {
     let valA = a[column];
     let valB = b[column];
-    
+
     if (column === 'viewer_count' || column === 'user_id') {
       valA = Number(valA);
       valB = Number(valB);
       return direction === 'asc' ? valA - valB : valB - valA;
     }
-    
+
     return direction === 'asc'
       ? valA.localeCompare(valB)
       : valB.localeCompare(valA);
   }).slice(0, 500);
 
   tableBody.innerHTML = '';
-  sortedStreams.forEach((stream, index) => {
+  sortedStreams.forEach((stream) => {
     const row = document.createElement('tr');
+    const rank = rankMap.get(stream.user_login);
     row.innerHTML = `
-      <td>${index + 1}</td>
+      <td>${rank}</td>
       <td title="${stream.user_name}"><img class="profile-img" src="${stream.profile_image_url || 'default-profile.png'}" alt="${stream.user_name}"/> ${stream.user_name}</td>
       <td>${stream.user_id}</td>
       <td>${stream.viewer_count.toLocaleString()}</td>
@@ -127,7 +129,6 @@ function sortAndRender() {
     tableBody.appendChild(row);
   });
 
-  // Update arrows
   tableHeaders.forEach(header => {
     const arrow = header.querySelector('.sort-arrow');
     const sortColumn = header.getAttribute('data-sort');
